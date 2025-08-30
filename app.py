@@ -64,7 +64,7 @@ with tab1:
     view["RiskBucket"] = buckets
 
     dept = st.selectbox("Filter by Department", ["All"] + sorted(view["Department"].dropna().unique().tolist()) if "Department" in view.columns else ["All"])
-    bucket_f = st.multiselect("Risk Bucket", ["High", "Medium", "Low"], default=["High", "Medium", "Low"])
+    bucket_f = st.multiselect("Risk Bucket", ["High", "Medium", "Low"], default=[])
     if dept != "All":
         view = view[view["Department"] == dept]
     view = view[view["RiskBucket"].isin(bucket_f)]
