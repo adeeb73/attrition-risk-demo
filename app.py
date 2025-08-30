@@ -51,7 +51,7 @@ def generate_nudges(row: pd.Series) -> list:
     return n[:5] if n else ["Check-in: ask about workload, growth, recognition, and support needed."]
 
 # --- Streamlit layout ---
-st.title("Responsible AI – Early Warning System for Attrition/Disengagement")
+st.title("Early Warning System for Attrition/Disengagement")
 
 tab1, tab2 = st.tabs(["Overview", "Profile"])
 
