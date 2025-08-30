@@ -9,7 +9,7 @@ st.set_page_config(page_title="Responsible Attrition EWS", layout="wide")
 
 @st.cache_resource
 def load_all():
-    pipe = joblib.load("artifacts/model_pipeline.pkl")
+    pipe = joblib.load("artifacts/model_pipeline.dill")
     data = pd.read_csv("artifacts/dataset_with_synth.csv")
     risk_holdout = pd.read_csv("artifacts/risk_scores_holdout.csv") if os.path.exists("artifacts/risk_scores_holdout.csv") else None
     meta = json.load(open("artifacts/meta.json"))
