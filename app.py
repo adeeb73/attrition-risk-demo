@@ -1,7 +1,9 @@
 import streamlit as st
-import pandas as pd, numpy as np, joblib, json, os
-import shap
-import matplotlib.pyplot as plt
+import pandas as pd
+import numpy as np
+import joblib
+import json
+import os
 
 st.set_page_config(page_title="Responsible Attrition EWS", layout="wide")
 
@@ -11,10 +13,9 @@ def load_all():
     data = pd.read_csv("artifacts/dataset_with_synth.csv")
     risk_holdout = pd.read_csv("artifacts/risk_scores_holdout.csv") if os.path.exists("artifacts/risk_scores_holdout.csv") else None
     meta = json.load(open("artifacts/meta.json"))
-    global_imp = pd.read_csv("artifacts/global_shap_top20.csv") if os.path.exists("artifacts/global_shap_top20.csv") else None
-    return pipe, data, risk_holdout, meta, global_imp
+    return pipe, data, risk_holdout, meta
 
-pipe, data, risk_holdout, meta, global_imp = load_all()
+pipe, data, risk_holdout, meta = load_all()
 num_cols, cat_cols = meta["num_cols"], meta["cat_cols"]
 RISK_THRESHOLDS = meta["risk_thresholds"]
 
@@ -22,27 +23,27 @@ def predict(df):
     return pipe.predict_proba(df)[:,1]
 
 def bucket(p):
-    return "High" if p>=RISK_THRESHOLDS["High"] else ("Medium" if p>=RISK_THRESHOLDS["Medium"] else "Low")
+    return "High" if p >= RISK_THRESHOLDS["High"] else ("Medium" if p >= RISK_THRESHOLDS["Medium"] else "Low")
 
 def generate_nudges(row: pd.Series) -> list:
     n = []
-    if "OverTime" in row and str(row["OverTime"]).lower()=="yes":
+    if row.get("OverTime","No").lower() == "yes":
         n.append("Discuss workload & overtime; consider resource rebalancing or comp-off.")
-    if "JobSatisfaction" in row and row["JobSatisfaction"]<=2:
+    if row.get("JobSatisfaction",3) <= 2:
         n.append("Schedule a career growth conversation and clarify role expectations.")
-    if "RecognitionCount6M" in row and row["RecognitionCount6M"]<=1:
-        n.append("Provide timely recognition for recent contributions.")
-    if "LMS_TrainSessions6M" in row and row["LMS_TrainSessions6M"]<=1:
-        n.append("Recommend a skill course aligned to career goals (opt-in).")
-    if "PromotionWaitVsPeers" in row and row["PromotionWaitVsPeers"]>=1:
+    if row.get("RecognitionCount6M",0) <= 1:
+        n.append("Provide timely recognition for contributions.")
+    if row.get("LMS_TrainSessions6M",0) <= 1:
+        n.append("Recommend a skill course aligned to career goals.")
+    if row.get("PromotionWaitVsPeers",0) >= 1:
         n.append("Discuss promotion path with clear timelines.")
-    if "CompHikePctVsPeers" in row and row["CompHikePctVsPeers"]<=-2:
+    if row.get("CompHikePctVsPeers",0) <= -2:
         n.append("Review compensation fairness vs peers.")
-    if "LeaveUtilization6M" in row and row["LeaveUtilization6M"]<0.3:
+    if row.get("LeaveUtilization6M",1) < 0.3:
         n.append("Encourage planned time-off to avoid burnout.")
-    if "TeamInteractionScore" in row and row["TeamInteractionScore"]<-0.5:
+    if row.get("TeamInteractionScore",0) < -0.5:
         n.append("Facilitate team check-ins/1:1s.")
-    if "ExitPortalLogin" in row and row["ExitPortalLogin"]==1:
+    if row.get("ExitPortalLogin",0) == 1:
         n.append("[Sensitive] Offer confidential career discussion (only if consented).")
     return n[:5] if n else ["Check-in: ask about workload, growth, recognition, and support needed."]
 
@@ -52,7 +53,6 @@ tab1, tab2 = st.tabs(["Overview", "Profile"])
 
 with tab1:
     st.subheader("Risk overview")
-    # Compute fresh scores on full dataset
     scores = predict(data)
     buckets = np.array([bucket(p) for p in scores])
     view = data.copy()
@@ -62,12 +62,11 @@ with tab1:
     dept = st.selectbox("Filter by Department", ["All"] + sorted(view["Department"].dropna().unique().tolist()) if "Department" in view.columns else ["All"])
     bucket_f = st.multiselect("Risk Bucket", ["High","Medium","Low"], default=["High","Medium","Low"])
     if dept != "All":
-        view = view[view["Department"]==dept]
+        view = view[view["Department"] == dept]
     view = view[view["RiskBucket"].isin(bucket_f)]
 
     st.dataframe(view.sort_values("RiskScore", ascending=False).head(200), use_container_width=True)
-
-    st.markdown("**Fairness note:** Predictions are calibrated probabilities. Always combine with human judgment, employee consent, and transparent communication.")
+    st.markdown("**Fairness note:** Predictions are calibrated probabilities. Combine with human judgment, employee consent, and transparent communication.")
 
 with tab2:
     st.subheader("Employee profile")
@@ -77,19 +76,6 @@ with tab2:
     rb = bucket(rs)
     st.metric("Risk Score", f"{rs:.3f}", help="Calibrated probability of attrition")
     st.metric("Bucket", rb)
-
-    # SHAP explanation (approximate)
-    # Build explainer on a small background to keep it responsive
-    prep = pipe.base_estimator.named_steps["prep"] if hasattr(pipe,"base_estimator") else pipe.named_steps["prep"]
-    clf = pipe.base_estimator.named_steps["clf"] if hasattr(pipe,"base_estimator") else pipe.named_steps["clf"]
-    bg = data.sample(min(200, len(data)), random_state=42)
-    X_bg = prep.fit_transform(bg)
-    try:
-        expl = shap.Explainer(lambda D: clf.predict_proba(D)[:,1], X_bg)
-        sv = expl(prep.transform(pd.DataFrame([row])))
-        st.pyplot(shap.plots.waterfall(sv[0], max_display=15, show=False).figure)
-    except Exception as e:
-        st.info("SHAP waterfall not available in this environment.")
 
     st.markdown("### Recommended actions")
     for i, n in enumerate(generate_nudges(row), 1):
