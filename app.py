@@ -53,6 +53,9 @@ st.title("Responsible AI - Early Warning System for Attrition/Disengagement")
 
 def app():
     # --- Load artifacts ---
+    st.sidebar.success(f"Logged in as {st.session_state.username}")
+    if st.sidebar.button("Logout"):
+        logout()
     @st.cache_resource
     def load_all():
         with open("artifacts/model_pipeline.dill", "rb") as f:
