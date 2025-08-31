@@ -49,13 +49,15 @@ def logout():
 st.set_page_config(page_title="Responsible Attrition EWS", layout="wide")
 
 # --- Streamlit layout ---
-st.title("Responsible AI - Early Warning System for Attrition/Disengagement")
 
 def app():
+    
     # --- Load artifacts ---
     st.sidebar.success(f"Logged in as {st.session_state.username}")
     if st.sidebar.button("Logout"):
         logout()
+        
+    st.title("Responsible Intelligent - Early Warning System for Attrition/Disengagement")
     @st.cache_resource
     def load_all():
         with open("artifacts/model_pipeline.dill", "rb") as f:
