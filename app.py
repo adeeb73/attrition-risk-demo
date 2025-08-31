@@ -11,7 +11,7 @@ def load_credentials():
 
 CREDENTIALS = load_credentials()
 
- Session state setup
+ # Session state setup
 # -----------------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
